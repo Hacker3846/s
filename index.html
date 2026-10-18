@@ -2,835 +2,555 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Вход — Мессенджер</title>
-<script>
-  (function() {
-    var saved = localStorage.getItem("theme");
-    if (saved === "light") document.documentElement.setAttribute("data-theme", "light");
-  })();
-</script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SyncTxt | Dev-Buffer</title>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 <style>
-  :root {
-    --ink: #eceae4;
-    --paper: #15161a;
-    --card: #1e2025;
-    --accent: #5c7cfa;
-    --accent-dark: #7c96ff;
-    --line: #2f3138;
-    --muted: #85848c;
-    --error: #ff6b6b;
-  }
+:root{--bg:#0d1117;--card:#161b22;--accent:#58a6ff;--accent-hover:#1f6feb;--text-main:#c9d1d9;--text-muted:#8b949e;--border:#30363d;--success:#238636}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;background:var(--bg);color:var(--text-main);margin:0;padding:20px;display:flex;flex-direction:column;align-items:center;min-height:100vh;box-sizing:border-box}
+.container{width:100%;max-width:800px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:15px;box-sizing:border-box}
+.header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:15px;gap:10px}
+.left{display:flex;align-items:center;gap:12px;min-width:0}
+.title{font-size:20px;font-weight:600;margin:0;display:flex;align-items:center;gap:10px}
+.title::before{content:"</>";color:var(--accent);font-family:monospace;font-weight:bold}
+.badge{font-size:12px;color:var(--accent);border:1px solid var(--border);border-radius:20px;padding:2px 10px;white-space:nowrap}
+.status{font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.status-dot{width:8px;height:8px;background:var(--text-muted);border-radius:50%;transition:background .3s}
+.status-dot.online{background:var(--success);box-shadow:0 0 8px var(--success)}
+.status-dot.syncing{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+textarea{width:100%;height:40vh;background:#010409;color:var(--text-main);border:1px solid var(--border);border-radius:8px;padding:15px;font-family:Consolas,"Courier New",monospace;font-size:15px;line-height:1.5;resize:none;outline:none;box-sizing:border-box;transition:border-color .2s,box-shadow .2s}
+textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.controls{display:flex;justify-content:flex-end;gap:10px}
+button,a.btn{background:var(--card);color:var(--text-main);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s;text-decoration:none;font-family:inherit}
+button:hover,a.btn:hover{border-color:var(--text-muted);background:var(--border)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.burger{padding:6px 11px;font-size:18px;line-height:1}
+input{background:#010409;color:var(--text-main);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:16px;outline:none;box-sizing:border-box;min-width:0;flex:1;font-family:monospace;letter-spacing:.2em}
+@media(max-width:600px){textarea{height:32vh}body{padding:10px}.container{padding:15px}}
 
-  html[data-theme="light"] {
-    --ink: #1a1d1f;
-    --paper: #f6f4ef;
-    --card: #ffffff;
-    --accent: #3454d1;
-    --accent-dark: #2540a8;
-    --line: #e2ded3;
-    --muted: #8a8578;
-    --error: #c0392b;
-  }
+/* меню */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
+#drawer{position:fixed;top:0;left:0;bottom:0;width:300px;max-width:85vw;background:var(--card);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform .25s;z-index:10;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+body.menu #drawer{transform:none}
+body.menu .overlay{opacity:1;pointer-events:auto}
+.dtitle{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+.join{display:flex;gap:8px}
+#roomBox{display:none;flex-direction:column;align-items:center;gap:10px;padding:14px;border:1px solid var(--border);border-radius:8px;background:#010409}
+#roomCode{font-family:monospace;font-size:34px;letter-spacing:.25em;color:var(--accent);padding-left:.25em}
+#recent{display:flex;flex-wrap:wrap;gap:8px}
+body.inroom .badge{background:rgba(88,166,255,.15);border-color:var(--accent)}
+body.inroom textarea{border-color:var(--accent)}
+.note{display:none;background:#2d2000;border:1px solid #9e6a03;color:#e3b341;border-radius:8px;padding:8px 12px;font-size:13px}
 
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: var(--paper);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--ink);
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
-    padding: 24px;
-    position: relative;
-    overflow-x: hidden;
-  }
-
-  /* ===== ФОНОВЫЙ ГРАДИЕНТ "СИНЕЕ ПЛАМЯ" =====
-     Приглушённая атмосферная подсветка позади карточки входа. Видна только
-     в тёмной теме (в светлой отключается — на бежевом фоне будет чужеродно
-     смотреться); сама карточка остаётся полностью читаемой поверх неё. */
-  .bg-fire {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-    opacity: 0.55;
-  }
-
-  html[data-theme="light"] .bg-fire { display: none; }
-
-  .bg-fire::before {
-    content: "";
-    position: absolute;
-    left: -15%;
-    bottom: -55%;
-    width: 130%;
-    height: 125%;
-
-    background:
-      radial-gradient(ellipse at 12% 82%,
-        rgba(32, 78, 125, .95) 0%,
-        rgba(27, 60, 98, .65) 20%,
-        transparent 48%),
-      radial-gradient(ellipse at 35% 70%,
-        rgba(67, 108, 148, .82) 0%,
-        rgba(37, 73, 108, .5) 23%,
-        transparent 51%),
-      radial-gradient(ellipse at 55% 78%,
-        rgba(42, 91, 145, .95) 0%,
-        rgba(27, 61, 99, .58) 24%,
-        transparent 51%),
-      radial-gradient(ellipse at 77% 68%,
-        rgba(71, 111, 150, .78) 0%,
-        rgba(32, 69, 105, .45) 22%,
-        transparent 49%),
-      radial-gradient(ellipse at 96% 82%,
-        rgba(28, 72, 120, .9) 0%,
-        rgba(22, 50, 82, .5) 25%,
-        transparent 50%);
-
-    filter: blur(30px);
-    transform-origin: 50% 100%;
-    animation: bgFlame 11s ease-in-out infinite alternate;
-  }
-
-  .bg-fire::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(to top,
-        rgba(55, 91, 122, .16),
-        transparent 42%),
-      radial-gradient(ellipse at 50% 100%,
-        rgba(42, 88, 135, .16),
-        transparent 55%);
-  }
-
-  @keyframes bgFlame {
-    0% { transform: translate3d(-3%, 2%, 0) scale(.98, .88); }
-    30% { transform: translate3d(2%, -2%, 0) scale(1.03, 1.04); }
-    65% { transform: translate3d(-2%, 1%, 0) scale(1.06, .96); }
-    100% { transform: translate3d(4%, -4%, 0) scale(1.02, 1.08); }
-  }
-
-  .wrap {
-    width: 100%;
-    max-width: 380px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .mark {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-
-  .mark-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    background: var(--accent);
-    transform: rotate(45deg);
-    flex-shrink: 0;
-  }
-
-  .mark-text {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-
-  .tagline {
-    color: var(--muted);
-    font-size: 14.5px;
-    margin: 0 0 32px 0;
-    line-height: 1.4;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 28px 24px;
-  }
-
-  .tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--paper);
-    border-radius: 10px;
-    padding: 4px;
-    margin-bottom: 22px;
-  }
-
-  .tab {
-    flex: 1;
-    text-align: center;
-    padding: 9px 0;
-    border-radius: 7px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    transition: background 0.15s ease, color 0.15s ease;
-    font-family: inherit;
-  }
-
-  .tab.active {
-    background: var(--card);
-    color: var(--ink);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-  }
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 6px;
-  }
-
-  .field {
-    margin-bottom: 16px;
-  }
-
-  input[type="email"],
-  input[type="password"],
-  input[type="text"] {
-    width: 100%;
-    padding: 12px 14px;
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    font-size: 15px;
-    font-family: inherit;
-    background: var(--card);
-    color: var(--ink);
-    outline: none;
-    transition: border-color 0.15s ease;
-  }
-
-  input:focus {
-    border-color: var(--accent);
-  }
-
-  /* ===== ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ ===== */
-  .password-field {
-    position: relative;
-  }
-
-  .password-field input[type="password"],
-  .password-field input[type="text"] {
-    padding-right: 42px;
-  }
-
-  .password-toggle {
-    position: absolute;
-    top: 50%;
-    right: 4px;
-    transform: translateY(-50%);
-    width: 34px;
-    height: 34px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    padding: 0;
-  }
-
-  .password-toggle:hover { color: var(--ink); }
-  .password-toggle svg { width: 19px; height: 19px; }
-  .password-toggle .eye-off { display: none; }
-  .password-toggle.showing .eye { display: none; }
-  .password-toggle.showing .eye-off { display: block; }
-
-  .btn-primary {
-    width: 100%;
-    padding: 13px 0;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    margin-top: 4px;
-    transition: background 0.15s ease;
-  }
-
-  .btn-primary:hover { background: var(--accent-dark); }
-  .btn-primary:disabled { opacity: 0.6; cursor: default; }
-
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 20px 0;
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  .divider::before, .divider::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--line);
-  }
-
-  .btn-google {
-    width: 100%;
-    padding: 11px 0;
-    background: var(--card);
-    color: var(--ink);
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    font-size: 14.5px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-
-  .btn-google:hover {
-    border-color: var(--ink);
-  }
-
-  .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-  .msg {
-    font-size: 13px;
-    margin-top: 14px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    display: none;
-    line-height: 1.4;
-  }
-
-  .msg.show { display: block; }
-
-  .msg.error {
-    background: #3a2422;
-    color: var(--error);
-  }
-
-  .msg.info {
-    background: #1c2540;
-    color: var(--accent-dark);
-  }
-
-  html[data-theme="light"] .msg.error { background: #fbeae8; }
-  html[data-theme="light"] .msg.info { background: #eaf0fb; }
-
-  /* ===== БАННЕР АКТИВНОЙ СЕССИИ ===== */
-  .session-banner {
-    display: none;
-    background: #1c2540;
-    border: 1px solid var(--accent);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 18px;
-    font-size: 13.5px;
-    line-height: 1.5;
-  }
-
-  html[data-theme="light"] .session-banner {
-    background: #eaf0fb;
-  }
-
-  .session-banner.show { display: block; }
-
-  .session-banner .who {
-    font-weight: 700;
-    color: var(--accent-dark);
-    margin-bottom: 10px;
-  }
-
-  .session-banner .actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .session-banner .actions button {
-    flex: 1;
-    padding: 9px 0;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    border: none;
-  }
-
-  .session-banner .btn-continue {
-    background: var(--accent);
-    color: white;
-  }
-
-  .session-banner .btn-continue:hover { background: var(--accent-dark); }
-
-  .session-banner .btn-switch {
-    background: var(--card);
-    color: var(--ink);
-    border: 1.5px solid var(--line) !important;
-  }
-
-  .session-banner .btn-switch:hover { border-color: var(--ink) !important; }
-
-  .foot {
-    text-align: center;
-    color: var(--muted);
-    font-size: 12.5px;
-    margin-top: 20px;
-    line-height: 1.5;
-  }
-
-  .hidden { display: none !important; }
-
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin-right: 8px;
-    vertical-align: -2px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ===== ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ ===== */
-  .theme-fab {
-    position: fixed;
-    top: 18px;
-    right: 18px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--card);
-    border: 1.5px solid var(--line);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    z-index: 2;
-    transition: border-color 0.15s ease, background 0.2s ease;
-  }
-
-  .theme-fab:hover { border-color: var(--accent); }
+/* файлы */
+.divider{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+#peerInfo{font-size:12px;color:var(--text-muted);text-align:center;margin-top:-6px}
+.dropzone{border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;color:var(--text-muted);font-size:13px;cursor:pointer;transition:all .2s}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);color:var(--accent);background:rgba(88,166,255,.06)}
+.dropzone input{display:none}
+.hint{display:block;margin-top:4px;font-size:11px;opacity:.75}
+.file-list{display:flex;flex-direction:column;gap:8px}
+.file-item{display:flex;align-items:center;gap:10px;background:#010409;border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.file-icon{font-family:monospace;font-size:16px;color:var(--accent);width:22px;text-align:center;flex-shrink:0}
+.file-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.file-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:11px;color:var(--text-muted)}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;background:var(--accent);width:0;transition:width .15s linear}
+.file-actions{display:flex;gap:6px;flex-shrink:0}
+.file-actions .btn,.file-actions button{padding:5px 10px;font-size:12px}
+.empty-note{font-size:12px;color:var(--text-muted);text-align:center;padding:6px 0}
 </style>
 </head>
 <body>
 
-<div class="bg-fire"></div>
-
-<button class="theme-fab" id="themeFab" onclick="toggleTheme()" title="Переключить тему">🌙</button>
-
-<div class="wrap">
-  <div class="mark">
-    <div class="mark-dot"></div>
-    <div class="mark-text">Мессенджер</div>
-  </div>
-  <p class="tagline">Общий чат учеников 8-го училища</p>
-
-  <div class="session-banner" id="sessionBanner">
-    <div class="who" id="sessionBannerWho"></div>
-    <div class="actions">
-      <button class="btn-continue" onclick="goToChat()">Продолжить</button>
-      <button class="btn-switch" onclick="switchAccount()">Выйти и войти другим</button>
+<div class="overlay" id="overlay"></div>
+<aside id="drawer">
+    <div class="dtitle">Комнаты</div>
+    <div id="roomBox">
+        <div id="roomCode"></div>
+        <button onclick="copyLink()" id="linkBtn">Скопировать ссылку</button>
+        <button onclick="deleteRoom()">Удалить комнату</button>
     </div>
-  </div>
+    <button class="primary" onclick="createRoom()">＋ Создать комнату</button>
+    <div class="join">
+        <input id="codeIn" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+        <button onclick="joinRoom()">Войти</button>
+    </div>
+    <button id="homeBtn" onclick="go(null)">← Главная комната</button>
+    <div class="dtitle" id="recentTitle">Недавние</div>
+    <div id="recent"></div>
+</aside>
 
-  <div class="card">
-    <div class="tabs">
-      <button class="tab active" id="tabLogin" onclick="switchTab('login')">Вход</button>
-      <button class="tab" id="tabSignup" onclick="switchTab('signup')">Регистрация</button>
+<div class="container">
+    <div class="header">
+        <div class="left">
+            <button class="burger" id="burger" aria-label="Меню">☰</button>
+            <h1 class="title">SyncTxt</h1>
+            <span class="badge" id="roomBadge">Главная</span>
+        </div>
+        <div class="status"><div class="status-dot" id="statusDot"></div></div>
     </div>
 
-    <!-- ВХОД -->
-    <form id="formLogin" onsubmit="return handleLogin(event)">
-      <div class="field">
-        <label for="loginEmail">Email</label>
-        <input type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="loginPassword">Пароль</label>
-        <div class="password-field">
-          <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
-          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('loginPassword', this)" title="Показать пароль" aria-label="Показать пароль">
-            <svg class="eye" viewBox="0 0 24 24" fill="none"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-            <svg class="eye-off" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94C16.23 19.24 14.24 20 12 20C5 20 1 12 1 12C2.24 9.68 3.9 7.75 5.86 6.35M9.9 4.24C10.58 4.09 11.28 4 12 4C19 4 23 12 23 12C22.39 13.16 21.6 14.27 20.68 15.27M14.12 14.12C13.62 14.63 12.85 15 12 15C10.34 15 9 13.66 9 12C9 11.15 9.37 10.38 9.88 9.88" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-      </div>
-      <button type="submit" class="btn-primary" id="loginBtn">Войти</button>
-    </form>
+    <div class="note" id="note"></div>
 
-    <!-- РЕГИСТРАЦИЯ -->
-    <form id="formSignup" class="hidden" onsubmit="return handleSignup(event)">
-      <div class="field">
-        <label for="signupName">Имя</label>
-        <input type="text" id="signupName" placeholder="Как тебя зовут" required autocomplete="name">
-      </div>
-      <div class="field">
-        <label for="signupEmail">Email</label>
-        <input type="email" id="signupEmail" placeholder="you@example.com" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="signupPassword">Пароль</label>
-        <div class="password-field">
-          <input type="password" id="signupPassword" placeholder="Минимум 6 символов" required autocomplete="new-password" minlength="6">
-          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signupPassword', this)" title="Показать пароль" aria-label="Показать пароль">
-            <svg class="eye" viewBox="0 0 24 24" fill="none"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-            <svg class="eye-off" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94C16.23 19.24 14.24 20 12 20C5 20 1 12 1 12C2.24 9.68 3.9 7.75 5.86 6.35M9.9 4.24C10.58 4.09 11.28 4 12 4C19 4 23 12 23 12C22.39 13.16 21.6 14.27 20.68 15.27M14.12 14.12C13.62 14.63 12.85 15 12 15C10.34 15 9 13.66 9 12C9 11.15 9.37 10.38 9.88 9.88" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-      </div>
-      <button type="submit" class="btn-primary" id="signupBtn">Создать аккаунт</button>
-    </form>
+    <textarea id="syncArea" placeholder="Вставь код или текст сюда. Он автоматически появится на других устройствах в этой комнате..."></textarea>
 
-    <div class="divider">или</div>
+    <div class="controls">
+        <button onclick="clearText()">Очистить</button>
+        <button onclick="pasteText()" id="pasteBtn">Вставить</button>
+        <button class="primary" onclick="copyText()" id="copyBtn">Копировать</button>
+    </div>
 
-    <button class="btn-google" id="googleBtn" onclick="handleGoogle()">
-      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.78-2.4 3.63v3.02h3.88c2.27-2.09 3.57-5.17 3.57-8.84z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.88-3.02c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.62H1.27C.46 8.24 0 10.07 0 12s.46 3.76 1.27 5.38l4-3.11z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.62l4 3.11c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
-      Продолжить с Google
-    </button>
+    <div class="divider">Файлы · напрямую между устройствами</div>
+    <div id="peerInfo">Ожидание других устройств…</div>
 
-    <div class="msg" id="msgBox"></div>
-  </div>
+    <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" multiple>
+        <span id="dropzoneLabel">Перетащи файл сюда или нажми, чтобы выбрать</span>
+        <span class="hint">Файл идёт напрямую на другое устройство (P2P), не через базу. Лимита размера нет — обе вкладки должны быть открыты.</span>
+    </label>
 
-  <p class="foot">АККУРАТНО ЛЕЛ КХУ ЧОХЬ, ДУКХ ОЬЙХЬАЗ МА ДУЬЛ, ВАЙ ВЗЛОМАТЬ ДИН НАХАЛ ДАХА АЬХЬ ДАЦ</p>
-  <p20 class="foot">при регистрации вы соглашаетесь на то что владелец сайта не несёт ответственность за сообщение на данном сайте, и за нелегальный или другой вид способа изза которого могут быть проблемы при использовании, а так же за то что ваш чат могут взломать, хотя только настоящие программисты смогут, и то не факт </p20>
+    <div class="file-list" id="fileList"><div class="empty-note" id="emptyNote">Пока нет файлов</div></div>
 </div>
 
-<!-- Firebase SDK через CDN — никакого npm install не требуется -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import {
-    getAuth,
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    GoogleAuthProvider,
-    signInWithPopup,
-    updateProfile,
-    onAuthStateChanged,
-    signOut,
-    deleteUser
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-  import {
-    getFirestore,
-    doc,
-    setDoc,
-    getDoc,
-    serverTimestamp,
-    arrayUnion,
-    updateDoc,
-    collection,
-    query,
-    where,
-    limit,
-    getDocs
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+<script>
+const $ = id => document.getElementById(id);
+const SECRET = '3846';
+const NOTES_URL = 'notes.html';
+const ICE = { iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    // Бесплатный публичный TURN — запасной путь, если прямое соединение невозможно (мобильные сети). Можно удалить или заменить своим.
+    { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+]};
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBnHrPE4dLu1Hl_1wxm7nL9Iu2ZSty5hBY",
-    authDomain: "messenjer8uchilisha.firebaseapp.com",
-    projectId: "messenjer8uchilisha",
-    storageBucket: "messenjer8uchilisha.firebasestorage.app",
-    messagingSenderId: "323729368567",
-    appId: "1:323729368567:web:67fff7eb9a659d55917af2",
-    measurementId: "G-V3REH3FXTF"
-  };
+firebase.initializeApp({ databaseURL: "https://messengerb-dcc80-default-rtdb.europe-west1.firebasedatabase.app" });
+const database = firebase.database();
+const TS = firebase.database.ServerValue.TIMESTAMP;
+let srvOff = 0; // разница между часами устройства и сервера
+database.ref('.info/serverTimeOffset').on('value', s => srvOff = s.val() || 0);
+const offReady = new Promise(res => database.ref('.info/serverTimeOffset').once('value', s => { srvOff = s.val() || 0; res(); }));
+function showNote(msg) { const n = $('note'); n.textContent = msg; n.style.display = msg ? 'block' : 'none'; }
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+const myId = Math.random().toString(36).slice(2, 10);
+const myT = Date.now();
+let room = null, textRef = null, sig = null, peers = {};
+let isTyping = false, typingTimer;
 
-  // Раньше здесь был мгновенный window.location.href = "chat.html" при
-  // наличии активной сессии Firebase Auth в браузере. Из-за этого форму
-  // входа было физически невозможно увидеть на устройстве, где уже кто-то
-  // логинился: страница сразу перекидывала в chat.html под СТАРЫМ
-  // аккаунтом, даже если человек пытался ввести данные другого аккаунта.
-  // Теперь вместо мгновенного редиректа показываем баннер "Вы вошли как…"
-  // с явным выбором — продолжить или выйти и залогиниться другим.
-  onAuthStateChanged(auth, (user) => {
-    const banner = document.getElementById("sessionBanner");
-    const who = document.getElementById("sessionBannerWho");
-    if (user) {
-      who.textContent = "Вы уже вошли как " + (user.email || user.displayName || "пользователь") + ".";
-      banner.classList.add("show");
-    } else {
-      banner.classList.remove("show");
-    }
-  });
+const textarea = $('syncArea'), statusDot = $('statusDot');
 
-  window.goToChat = function() {
-    window.location.href = "chat.html";
-  }
+/* ============ Меню ============ */
+const setMenu = on => document.body.classList.toggle('menu', on);
+$('burger').onclick = () => setMenu(true);
+$('overlay').onclick = () => setMenu(false);
+$('codeIn').addEventListener('input', e => e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4));
+$('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
 
-  window.switchAccount = async function() {
-    await signOut(auth);
-    document.getElementById("sessionBanner").classList.remove("show");
-  }
+function getRecent() { try { return JSON.parse(localStorage.getItem('rooms') || '[]'); } catch { return []; } }
+function addRecent(c) {
+    try { localStorage.setItem('rooms', JSON.stringify([c, ...getRecent().filter(x => x !== c)].slice(0, 6))); } catch {}
+}
+function renderRecent() {
+    const box = $('recent'); box.innerHTML = '';
+    const list = getRecent().filter(c => c !== room);
+    $('recentTitle').style.display = list.length ? '' : 'none';
+    list.forEach(c => { const b = document.createElement('button'); b.textContent = '# ' + c; b.onclick = () => go(c); box.appendChild(b); });
+}
 
-  // ---------- ТЕМА ----------
-  // Тёмная тема — дефолт (нет атрибута data-theme на <html>).
-  // Светлая тема включается явно через data-theme="light" и запоминается.
-  function updateThemeFab() {
-    const fab = document.getElementById("themeFab");
-    if (!fab) return;
-    fab.textContent = document.documentElement.getAttribute("data-theme") === "light" ? "☀️" : "🌙";
-  }
-  window.toggleTheme = function() {
-    const isLight = document.documentElement.getAttribute("data-theme") === "light";
-    if (isLight) {
-      document.documentElement.removeAttribute("data-theme");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.setAttribute("data-theme", "light");
-      localStorage.setItem("theme", "light");
-    }
-    updateThemeFab();
-  }
-  updateThemeFab();
+function roomUrl(c) { return location.origin + location.pathname + '?room=' + c; }
+function copyLink() {
+    navigator.clipboard.writeText(roomUrl(room)).then(() => {
+        $('linkBtn').textContent = 'Скопировано!';
+        setTimeout(() => $('linkBtn').textContent = 'Скопировать ссылку', 1500);
+    });
+}
 
-  window.switchTab = function(tab) {
-    const isLogin = tab === "login";
-    document.getElementById("tabLogin").classList.toggle("active", isLogin);
-    document.getElementById("tabSignup").classList.toggle("active", !isLogin);
-    document.getElementById("formLogin").classList.toggle("hidden", !isLogin);
-    document.getElementById("formSignup").classList.toggle("hidden", isLogin);
-    hideMsg();
-  }
+const GRACE = 60 * 1000; // сколько комната живёт после того, как её покинул последний человек
+async function roomExists(c) {
+    await offReady;
+    const [p, t] = await Promise.all([
+        database.ref(`rooms/${c}/p2p/peers`).once('value'),
+        database.ref(`rooms/${c}/meta/t`).once('value')
+    ]);
+    // жива, если в ней кто-то есть, либо последний вышел меньше минуты назад
+    return t.exists() && (p.exists() || Date.now() + srvOff - t.val() < GRACE);
+}
+function dropRecent(c) { try { localStorage.setItem('rooms', JSON.stringify(getRecent().filter(x => x !== c))); } catch {} }
 
-  // ---------- ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ ----------
-  window.togglePasswordVisibility = function(inputId, btn) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    const showing = input.type === "password";
-    input.type = showing ? "text" : "password";
-    btn.classList.toggle("showing", showing);
-    btn.title = showing ? "Скрыть пароль" : "Показать пароль";
-    btn.setAttribute("aria-label", btn.title);
-    // Возвращаем фокус и курсор в конец поля — иначе после клика по кнопке
-    // курсор теряется, и человеку пришлось бы кликать в поле заново.
-    input.focus();
-    const pos = input.value.length;
-    input.setSelectionRange(pos, pos);
-  }
-
-  function showMsg(text, type) {
-    const box = document.getElementById("msgBox");
-    box.textContent = text;
-    box.className = "msg show " + type;
-  }
-
-  function hideMsg() {
-    document.getElementById("msgBox").className = "msg";
-  }
-
-  function friendlyError(code) {
-    const map = {
-      "auth/invalid-email": "Нийс йац email.",
-      "auth/user-not-found": "Ишт пользователь вавац.",
-      "auth/wrong-password": "Нийс яц хьа пароль.",
-      "auth/invalid-credential": "Нийс яц хьа email или пароль.",
-      "auth/email-already-in-use": "Ишт email уже йазин йолш йу.",
-      "auth/weak-password": "Пароль дукх простой йу (минимум 6 символов).",
-      "auth/popup-closed-by-user": "Окно входа было закрыто.",
-      "auth/network-request-failed": "Проблема с интернет."
-    };
-    return map[code] || "Что-то пошло не так. Юг1 хьажа.";
-  }
-
-  // Проверяет, есть ли уже пользователь с таким email среди документов
-  // коллекции users (а не через Firebase Auth — fetchSignInMethodsForEmail
-  // не всегда надёжен из-за защиты от email enumeration в новых версиях SDK).
-  // Именно коллекция users — источник списка в "Новом чате", поэтому
-  // дубли нужно предотвращать именно здесь.
-  async function emailAlreadyRegistered(email) {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email), limit(1));
-    const snap = await getDocs(q);
-    return !snap.empty;
-  }
-
-  // Создаёт профиль пользователя в Firestore (если его ещё нет)
-  // и гарантирует, что пользователь состоит в глобальном чате —
-  // как при первой регистрации, так и при обычном логине уже существующего аккаунта.
-  async function ensureUserProfile(user, displayNameOverride) {
-    const userRef = doc(db, "users", user.uid);
-    const existing = await getDoc(userRef);
-
-    if (!existing.exists()) {
-      await setDoc(userRef, {
-        name: displayNameOverride || user.displayName || user.email.split("@")[0],
-        email: user.email,
-        // Аватарку из Google-аккаунта намеренно НЕ подставляем автоматически —
-        // пользователь сам решает, ставить фото профиля или нет (через
-        // экран профиля в chat.html). Поле остаётся пустым до явной загрузки.
-        photoURL: null,
-        createdAt: serverTimestamp()
-      });
-    }
-
-    // Эта часть выполняется ВСЕГДА (не только для новых пользователей),
-    // чтобы старые аккаунты, у которых глобальный чат почему-то отсутствует
-    // в members, тоже гарантированно в него попадали.
-    const globalChatRef = doc(db, "chats", "global");
-    const globalChatSnap = await getDoc(globalChatRef);
-
-    if (!globalChatSnap.exists()) {
-      await setDoc(globalChatRef, {
-        type: "global",
-        name: "Общий чат",
-        members: [user.uid],
-        createdAt: serverTimestamp()
-      });
-    } else if (!(globalChatSnap.data().members || []).includes(user.uid)) {
-      await updateDoc(globalChatRef, {
-        members: arrayUnion(user.uid)
-      });
-    }
-  }
-
-  window.handleLogin = async function(e) {
-    e.preventDefault();
-    hideMsg();
-    const btn = document.getElementById("loginBtn");
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value;
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Входим…';
-
+// Физически стираем комнату: текст, служебные данные и файлы в кэше этого устройства
+async function expire(c) {
+    try { await database.ref().update({ ['rooms/' + c]: null, ['room_index/' + c]: null }); } catch {}
+    cacheDelRoom(c); dropRecent(c); renderRecent();
+}
+// «Уборщик»: любая открытая вкладка раз в 30 сек удаляет просроченные комнаты
+async function sweep() {
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      await ensureUserProfile(cred.user);
-      window.location.href = "chat.html";
-    } catch (err) {
-      showMsg(friendlyError(err.code), "error");
-      btn.disabled = false;
-      btn.textContent = "Войти";
-    }
-    return false;
-  }
+        const idx = await database.ref('room_index').once('value');
+        for (const c of Object.keys(idx.val() || {})) if (c !== room && !(await roomExists(c))) await expire(c);
+        for (const k of await cacheKeys()) if (k !== 'main' && k !== room && !(await roomExists(k))) await cacheDelRoom(k);
+        renderRecent();
+    } catch (e) { console.error(e); }
+}
 
-  window.handleSignup = async function(e) {
-    e.preventDefault();
-    hideMsg();
-    const btn = document.getElementById("signupBtn");
-    const name = document.getElementById("signupName").value.trim();
-    const email = document.getElementById("signupEmail").value.trim();
-    const password = document.getElementById("signupPassword").value;
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Создаём аккаунт…';
-
-    let cred = null;
+async function createRoom() {
     try {
-      // ВАЖНО: раньше проверка на дубль email делалась ДО этого вызова —
-      // но Firestore Security Rules требуют request.auth != null для чтения
-      // users, а до создания аккаунта пользователь ещё не авторизован.
-      // Из-за этого регистрация всегда падала с permission-denied ещё до
-      // того, как вообще пыталась создать аккаунт (Google-вход эту же
-      // проверку делает уже ПОСЛЕ signInWithPopup, когда сессия уже есть —
-      // поэтому он и работал, а обычная регистрация — нет).
-      // Теперь сначала создаём Auth-аккаунт (это и авторизует сессию),
-      // а проверку на дубль — как и в handleGoogle — переносим после.
-      cred = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Дубль по email возможен только если человек уже регистрировался
-      // раньше ДРУГИМ способом (например, через Google) — email/пароль-дубль
-      // с тем же email Firebase Auth и так не даст создать (упадёт с
-      // auth/email-already-in-use чуть выше, в catch).
-      const alreadyExists = await emailAlreadyRegistered(email);
-      if (alreadyExists) {
-        await deleteUser(cred.user);
-        showMsg("Ишт email уже йазин йолш йу через другой способ входа (например, Google). Юг1 хьажа обычный вход.", "error");
-        btn.disabled = false;
-        btn.textContent = "Создать аккаунт";
-        return false;
-      }
-
-      await updateProfile(cred.user, { displayName: name });
-      await ensureUserProfile(cred.user, name);
-      window.location.href = "chat.html";
-    } catch (err) {
-      // Если что-то пошло не так уже ПОСЛЕ создания аккаунта (например,
-      // ensureUserProfile упал на сети) — не оставляем висячий Auth-аккаунт
-      // без профиля: следующая попытка регистрации с тем же email иначе
-      // упёрлась бы в auth/email-already-in-use на ровном месте.
-      if (cred?.user) {
-        try { await deleteUser(cred.user); } catch (_) { /* не критично, просто подчистка */ }
-      }
-      showMsg(friendlyError(err.code), "error");
-      btn.disabled = false;
-      btn.textContent = "Создать аккаунт";
-    }
-    return false;
-  }
-
-  window.handleGoogle = async function() {
-    hideMsg();
-    const btn = document.getElementById("googleBtn");
-    btn.disabled = true;
-
-    try {
-      const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
-
-      // Если это НОВЫЙ Firebase Auth uid (Google даёт другой uid, чем
-      // email/пароль-аккаунт с тем же email), но профиль с таким email
-      // уже есть в Firestore — значит, человек уже регистрировался
-      // раньше другим способом. Не создаём второй профиль-дубль.
-      const userDocSnap = await getDoc(doc(db, "users", cred.user.uid));
-      if (!userDocSnap.exists()) {
-        const alreadyExists = await emailAlreadyRegistered(cred.user.email);
-        if (alreadyExists) {
-          await signOut(auth);
-          showMsg("Ишт email уже йазин йолш йу через другой способ входа (email/пароль). Юг1 хьажа обычный вход.", "error");
-          btn.disabled = false;
-          return;
+        for (let i = 0; i < 40; i++) {
+            const c = String(Math.floor(1000 + Math.random() * 9000));
+            if (c === SECRET || await roomExists(c)) continue; // 3846 никогда не выдаётся
+            await database.ref().update({ ['rooms/' + c]: { text: '', meta: { t: TS } }, ['room_index/' + c]: true });
+            return go(c);
         }
-      }
+        alert('Не удалось подобрать свободный код, попробуй ещё раз');
+    } catch (e) { alert('Не удалось создать комнату: ' + e.message + '\nПроверь правила Firebase для веток rooms и room_index'); }
+}
 
-      await ensureUserProfile(cred.user);
-      window.location.href = "chat.html";
-    } catch (err) {
-      showMsg(friendlyError(err.code), "error");
-      btn.disabled = false;
+function joinRoom() {
+    const c = $('codeIn').value.trim();
+    if (!/^\d{4}$/.test(c)) return alert('Введи 4 цифры');
+    $('codeIn').value = '';
+    go(c);
+}
+
+async function go(c) {
+    if (c === SECRET) { location.href = NOTES_URL; return; }
+    if (c) {
+        let ok = false;
+        try { ok = await roomExists(c); } catch (e) { return alert('Ошибка базы: ' + e.message); }
+        if (!ok) { alert('Комната ' + c + ' не найдена или уже удалена'); expire(c); return; }
     }
-  }
-</script>
+    setMenu(false);
+    enterRoom(c);
+}
 
+async function deleteRoom() {
+    if (!room || !confirm(`Удалить комнату ${room} и весь её текст для всех?`)) return;
+    const c = room;
+    await enterRoom(null);
+    await expire(c);
+}
+
+/* ============ Вход / выход из комнаты ============ */
+let epoch = 0; // номер последнего входа: защита от «гонок» при быстром переключении комнат
+
+async function leaveRoom() {
+    if (!sig) return;
+    const s = sig, r = room, me = s.child('peers/' + myId);
+    clearTimeout(typingTimer); isTyping = false;
+    textRef.off(); s.child('peers').off(); s.child('signals/' + myId).off();
+    Object.keys(peers).forEach(dropPeer);
+    sig = null;
+    me.onDisconnect().cancel(); s.child('signals/' + myId).onDisconnect().cancel();
+    if (r) database.ref(`rooms/${r}/meta/t`).onDisconnect().cancel();
+    await me.remove();
+    s.child('signals/' + myId).remove();
+    if (r) database.ref(`rooms/${r}/meta/t`).set(TS); // с этого момента, если в комнате пусто, идёт минута до удаления
+}
+
+// Отмечаем «я в комнате»; при обрыве связи сервер сам снимет отметку и зафиксирует время выхода
+async function announce() {
+    if (!sig) return;
+    const me = sig.child('peers/' + myId), r = room;
+    me.onDisconnect().remove();
+    sig.child('signals/' + myId).onDisconnect().remove();
+    if (r) {
+        const t = database.ref(`rooms/${r}/meta/t`);
+        t.onDisconnect().set(TS);
+        t.set(TS);
+        database.ref('room_index/' + r).set(true);
+    }
+    await me.set({ t: myT });
+}
+database.ref('.info/connected').on('value', s => { if (s.val() && sig) announce().catch(console.error); });
+
+async function enterRoom(c) {
+    const my = ++epoch;
+    textarea.readOnly = true; // пока идёт переключение, писать нельзя — иначе текст уйдёт не туда
+    showNote('');
+    await leaveRoom();
+    if (my !== epoch) return;
+    room = c;
+    document.body.classList.toggle('inroom', !!c);
+    textarea.value = '';
+    document.querySelectorAll('.file-item').forEach(e => e.remove());
+    $('emptyNote').style.display = '';
+    $('roomBadge').textContent = c ? '# ' + c : 'Главная';
+    $('roomBox').style.display = c ? 'flex' : 'none';
+    $('homeBtn').style.display = c ? '' : 'none';
+    history.replaceState(null, '', c ? '?room=' + c : location.pathname);
+    if (c) { addRecent(c); $('roomCode').textContent = c; }
+    renderRecent();
+    loadCached(c || 'main');
+
+    // Текст: у каждой комнаты своя ветка, у главной — своя
+    textRef = database.ref(c ? `rooms/${c}/text` : 'shared_buffer/main_text');
+    textRef.on('value', snap => {
+        if (my !== epoch) return;
+        textarea.readOnly = false; // новая комната загружена — можно писать
+        statusDot.className = 'status-dot online';
+        if (!isTyping) textarea.value = snap.val() || '';
+    }, err => {
+        if (my !== epoch) return;
+        textarea.readOnly = false; statusDot.className = 'status-dot';
+        showNote('Нет доступа к базе: ' + err.message);
+    });
+
+    // Сигналинг: через базу идут только крошечные служебные сообщения, сами файлы — нет
+    sig = database.ref(c ? `rooms/${c}/p2p` : 'p2p/main');
+    sig.child('peers').on('child_added', s => {
+        const id = s.key; if (id === myId) return;
+        const v = s.val() || {};
+        // Предложение соединения отправляет тот, кто пришёл позже — так двойных попыток нет
+        if (v.t < myT || (v.t === myT && id < myId)) connect(id);
+    });
+    sig.child('peers').on('child_removed', s => dropPeer(s.key));
+    sig.child('signals/' + myId).on('child_added', s => {
+        const m = s.val(); s.ref.remove();
+        const p = mkPeer(m.from), d = JSON.parse(m.d);
+        p.q = p.q.then(() => onSignal(p, m.from, m.k, d)).catch(console.error);
+    });
+    updateCount();
+    await announce();
+}
+
+/* ============ Текст ============ */
+textarea.addEventListener('input', () => {
+    if (textarea.readOnly) return;
+    isTyping = true;
+    statusDot.className = 'status-dot syncing';
+    clearTimeout(typingTimer);
+    const ref = textRef, my = epoch;
+    typingTimer = setTimeout(() => {
+        if (my !== epoch) return;
+        ref.set(textarea.value).then(() => {
+            isTyping = false;
+            statusDot.className = 'status-dot online';
+        }).catch(err => { statusDot.className = 'status-dot'; console.error(err); });
+    }, 500);
+});
+
+function clearText() {
+    if (confirm(room ? 'Очистить текст для всех в комнате?' : 'Точно очистить буфер для всех устройств?')) {
+        textarea.value = ''; textRef.set(''); textarea.focus();
+    }
+}
+
+async function pasteText() {
+    const btn = $('pasteBtn'), orig = btn.textContent, ref = textRef, my = epoch;
+    try {
+        const text = await navigator.clipboard.readText();
+        if (my !== epoch) return; // за время запроса доступа сменили комнату
+        clearTimeout(typingTimer); isTyping = false;
+        textarea.value = text;
+        textarea.blur();
+        statusDot.className = 'status-dot syncing';
+        await ref.set(text);
+        statusDot.className = 'status-dot online';
+        btn.textContent = 'Вставлено!';
+    } catch (err) { console.error(err); btn.textContent = 'Нет доступа к буферу'; }
+    setTimeout(() => btn.textContent = orig, 2000);
+}
+
+function copyText() {
+    const btn = $('copyBtn'), orig = btn.textContent;
+    textarea.select();
+    document.execCommand('copy');
+    btn.textContent = 'Скопировано!';
+    btn.style.background = 'var(--success)'; btn.style.borderColor = 'var(--success)';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.borderColor = ''; }, 2000);
+}
+
+/* ============ WebRTC: P2P-соединения ============ */
+function mkPeer(id) {
+    if (peers[id]) return peers[id];
+    const p = peers[id] = { pc: new RTCPeerConnection(ICE), dc: null, ice: [], rx: null, q: Promise.resolve() };
+    p.pc.onicecandidate = e => e.candidate && sendSig(id, 'ice', e.candidate);
+    p.pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(p.pc.connectionState)) dropPeer(id); };
+    p.pc.ondatachannel = e => setupDc(id, e.channel);
+    return p;
+}
+
+function sendSig(to, k, data) {
+    if (sig) sig.child('signals/' + to).push({ from: myId, k, d: JSON.stringify(data) });
+}
+
+async function connect(id) {
+    const p = mkPeer(id);
+    setupDc(id, p.pc.createDataChannel('f'));
+    await p.pc.setLocalDescription(await p.pc.createOffer());
+    sendSig(id, 'offer', p.pc.localDescription);
+}
+
+async function onSignal(p, id, k, d) {
+    if (k === 'ice') {
+        if (p.pc.remoteDescription) await p.pc.addIceCandidate(d).catch(() => {});
+        else p.ice.push(d);
+        return;
+    }
+    await p.pc.setRemoteDescription(d);
+    for (const c of p.ice.splice(0)) await p.pc.addIceCandidate(c).catch(() => {});
+    if (k === 'offer') {
+        await p.pc.setLocalDescription(await p.pc.createAnswer());
+        sendSig(id, 'answer', p.pc.localDescription);
+    }
+}
+
+function dropPeer(id) {
+    const p = peers[id]; if (!p) return;
+    if (p.rx) p.rx.row._m.textContent = 'Передача прервана';
+    try { p.pc.close(); } catch {}
+    delete peers[id];
+    updateCount();
+}
+
+function updateCount() {
+    const n = Object.values(peers).filter(p => p.dc && p.dc.readyState === 'open').length;
+    $('peerInfo').textContent = n ? `Подключено устройств: ${n} — файлы идут напрямую` : 'Ожидание других устройств…';
+}
+
+function setupDc(id, dc) {
+    const p = peers[id]; p.dc = dc;
+    dc.binaryType = 'arraybuffer';
+    dc.onopen = dc.onclose = updateCount;
+    dc.onmessage = e => onData(p, e.data);
+}
+
+/* ============ Кэш файлов (IndexedDB, отдельно для каждой комнаты) ============ */
+const idb = new Promise(res => {
+    try {
+        const r = indexedDB.open('synctxt', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('files', { keyPath: 'id' }).createIndex('room', 'room');
+        r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+    } catch { res(null); }
+});
+const idbReq = r => new Promise((ok, no) => { r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+async function store(mode) { const d = await idb; return d && d.transaction('files', mode).objectStore('files'); }
+async function cachePut(rec) { try { const s = await store('readwrite'); if (s) await idbReq(s.put(rec)); } catch (e) { console.error(e); } }
+async function cacheDel(id) { try { const s = await store('readwrite'); if (s) await idbReq(s.delete(id)); } catch {} }
+async function cacheList(key) { try { const s = await store('readonly'); return s ? await idbReq(s.index('room').getAll(key)) : []; } catch { return []; } }
+async function cacheKeys() {
+    try {
+        const st = await store('readonly'); if (!st) return [];
+        return await new Promise(ok => {
+            const ks = new Set(), r = st.index('room').openKeyCursor();
+            r.onsuccess = () => { const c = r.result; if (c) { ks.add(c.key); c.continue(); } else ok([...ks]); };
+            r.onerror = () => ok([...ks]);
+        });
+    } catch { return []; }
+}
+async function cacheDelRoom(key) { for (const r of await cacheList(key)) await cacheDel(r.id); }
+async function loadCached(key) {
+    const list = await cacheList(key);
+    if ((room || 'main') !== key) return; // за время чтения успели сменить комнату
+    list.sort((a, b) => a.t - b.t).forEach(rec => finalize(addRow(rec.name, rec.size, '↓'), rec));
+}
+function finalize(row, rec) {
+    const url = URL.createObjectURL(rec.blob);
+    row._f.style.width = '100%';
+    row._m.textContent = `Получено · ${fmt(rec.size)}`;
+    const a = document.createElement('a');
+    a.className = 'btn'; a.href = url; a.download = rec.name; a.textContent = 'Сохранить';
+    const d = document.createElement('button');
+    d.textContent = '✕'; d.title = 'Удалить';
+    d.onclick = () => {
+        cacheDel(rec.id); URL.revokeObjectURL(url); row.remove();
+        if (!fileList.querySelector('.file-item')) $('emptyNote').style.display = '';
+    };
+    row._a.append(a, d);
+}
+
+/* ============ Передача файлов ============ */
+const CH = 32 * 1024, BIG = 512 * 1024, MAX_BUF = 4 * 1024 * 1024;
+const fileList = $('fileList');
+
+function fmt(b) {
+    if (b < 1024) return b + ' Б';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' КБ';
+    if (b < 1073741824) return (b / 1048576).toFixed(1) + ' МБ';
+    return (b / 1073741824).toFixed(2) + ' ГБ';
+}
+
+function addRow(name, size, icon) {
+    $('emptyNote').style.display = 'none';
+    const r = document.createElement('div'); r.className = 'file-item';
+    r.innerHTML = '<div class="file-icon"></div><div class="file-info"><div class="file-name"></div><div class="file-meta"></div><div class="progress-bar"><div class="progress-fill"></div></div></div><div class="file-actions"></div>';
+    r.querySelector('.file-icon').textContent = icon;
+    r.querySelector('.file-name').textContent = name;
+    r._m = r.querySelector('.file-meta'); r._f = r.querySelector('.progress-fill'); r._a = r.querySelector('.file-actions');
+    r._size = size;
+    fileList.prepend(r);
+    return r;
+}
+function prog(r, done, label) {
+    r._f.style.width = Math.min(100, done / (r._size || 1) * 100) + '%';
+    r._m.textContent = `${label} ${fmt(done)} / ${fmt(r._size)}`;
+}
+
+function onData(p, d) {
+    if (typeof d === 'string') {
+        const m = JSON.parse(d);
+        if (m.t === 'meta') p.rx = { m, parts: [], got: 0, row: Object.assign(addRow(m.name, m.size, '↓'), {}) };
+        else if (m.t === 'end' && p.rx) {
+            const { m: meta, parts, row } = p.rx; p.rx = null;
+            const type = meta.type || 'application/octet-stream';
+            const rec = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), room: room || 'main', name: meta.name, size: meta.size, type, t: Date.now(), blob: new Blob(parts, { type }) };
+            cachePut(rec);
+            finalize(row, rec);
+        }
+    } else if (p.rx) {
+        p.rx.parts.push(d); p.rx.got += d.byteLength;
+        prog(p.rx.row, p.rx.got, 'Приём');
+    }
+}
+
+let sendQ = Promise.resolve();
+function handleFiles(files) { files.forEach(f => sendQ = sendQ.then(() => sendFile(f)).catch(console.error)); }
+
+async function sendFile(file) {
+    const open = () => Object.values(peers).filter(p => p.dc && p.dc.readyState === 'open');
+    if (!open().length) return alert('Нет подключённых устройств. Открой эту же комнату на другом устройстве.');
+    const row = addRow(file.name, file.size, '↑');
+    const send = (p, data) => p.dc.readyState === 'open' && p.dc.send(data);
+    open().forEach(p => send(p, JSON.stringify({ t: 'meta', name: file.name, size: file.size, type: file.type })));
+    let off = 0;
+    while (off < file.size) {
+        const buf = await file.slice(off, off + BIG).arrayBuffer();
+        for (let i = 0; i < buf.byteLength; i += CH) {
+            const part = new Uint8Array(buf, i, Math.min(CH, buf.byteLength - i));
+            for (const p of open()) {
+                while (p.dc.bufferedAmount > MAX_BUF && p.dc.readyState === 'open') await new Promise(r => setTimeout(r, 15));
+                send(p, part);
+            }
+        }
+        off += buf.byteLength;
+        prog(row, off, 'Отправка');
+    }
+    for (const p of open()) { while (p.dc.bufferedAmount > 0 && p.dc.readyState === 'open') await new Promise(r => setTimeout(r, 15)); send(p, JSON.stringify({ t: 'end' })); }
+    row._f.style.width = '100%';
+    row._m.textContent = `Отправлено · ${fmt(file.size)}`;
+}
+
+/* ============ Dropzone ============ */
+const dropzone = $('dropzone'), fileInput = $('fileInput');
+if (('ontouchstart' in window) || navigator.maxTouchPoints > 0) $('dropzoneLabel').textContent = 'Нажми, чтобы выбрать файл';
+fileInput.addEventListener('change', () => { if (fileInput.files.length) { handleFiles(Array.from(fileInput.files)); fileInput.value = ''; } });
+['dragenter', 'dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+dropzone.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files)); });
+
+/* ============ Старт ============ */
+window.addEventListener('pagehide', () => { if (sig) { sig.child('peers/' + myId).remove(); if (room) database.ref(`rooms/${room}/meta/t`).set(TS); } });
+(async function init() {
+    const c = new URLSearchParams(location.search).get('room');
+    if (c === SECRET) { location.replace(NOTES_URL); return; }
+    let ok = false, err = null;
+    if (/^\d{4}$/.test(c || '')) { try { ok = await roomExists(c); } catch (e) { err = e; } }
+    await enterRoom(ok ? c : null);
+    if (c && !ok) showNote(err ? `Не удалось открыть комнату ${c}: ${err.message}` : `Комната ${c} не найдена или уже закрыта — открыта ГЛАВНАЯ комната.`);
+    sweep(); setInterval(sweep, 30000);
+})();
+</script>
 </body>
 </html>
